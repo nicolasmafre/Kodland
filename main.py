@@ -1,7 +1,8 @@
-import pgzrun  # Importa a biblioteca principal do Pygame Zero
-from pgzero.builtins import keyboard  # Importa o módulo de teclado para detectar teclas pressionadas
+import pgzrun
+import pygame
+import os
+from pgzero.builtins import keyboard
 
-# Importa constantes e classes dos outros módulos do jogo
 from jogo.constantes import *
 from jogo.personagens import Player
 from jogo.inimigos import EnemyManager
@@ -9,105 +10,117 @@ from jogo.fases import Level1
 from jogo.menu import Menu
 
 # Inicialização de Objetos
-player = Player()  # Cria a instância do jogador
-enemy_manager = EnemyManager()  # Cria o gerenciador de inimigos
-level1 = Level1()  # Cria a instância da Fase 1
-menu = Menu()  # Cria a instância do Menu
+player = Player()
+enemy_manager = EnemyManager()
+level1 = Level1()
+menu = Menu()
 
 # Variáveis de Estado Global
-state = MENU  # Define o estado inicial do jogo como o Menu
-survival_time = 0  # Inicializa o tempo de sobrevivência da Fase 2
+state = MENU
+survival_time = 0
+
+# Variável para controlar se a música já foi iniciada
+music_started = False
 
 def manage_music():
     """Gerencia a música de fundo baseada na configuração de som"""
+    global music_started
+    
+    # Caminho absoluto para garantir que o arquivo seja encontrado
+    music_path = os.path.join("musica", "musica_fundo.mp3")
+    
     try:
-        if menu.sound_enabled:  # Se o som estiver habilitado no menu
-            # Apenas inicia se não estiver tocando a música correta
-            if not musica.is_playing("musica_fundo"):
-                musica.play("musica_fundo")  # Toca a música em loop
+        if menu.sound_enabled:
+            if not pygame.mixer.music.get_busy():
+                print(f"Tentando carregar música de: {os.path.abspath(music_path)}")
+                if os.path.exists(music_path):
+                    pygame.mixer.music.load(music_path)
+                    pygame.mixer.music.play(-1)
+                    music_started = True
+                    print("Música iniciada com sucesso.")
+                else:
+                    print(f"ERRO: Arquivo não encontrado: {os.path.abspath(music_path)}")
         else:
-            musica.stop()  # Para a música se o som estiver desabilitado
-    except Exception:
-        # Evita erro se o arquivo não existir ou a pasta 'musica' não for encontrada
-        print("Aviso: Para música, crie a pasta 'musica' e adicione 'musica_fundo.mp3'")
-
-# Tenta iniciar a música ao carregar o jogo
-manage_music()
+            if pygame.mixer.music.get_busy():
+                pygame.mixer.music.stop()
+                music_started = False
+                print("Música parada.")
+    except Exception as e:
+        print(f"Erro ao manipular música: {e}")
 
 def draw():
-    """Função principal de desenho do Pygame Zero, chamada a cada quadro"""
-    screen.clear()  # Limpa a tela antes de desenhar o novo quadro
+    screen.clear()
     
     if state == MENU:
-        menu.draw(screen)  # Desenha o menu se o estado for MENU
+        menu.draw(screen)
     elif state == LEVEL1:
-        level1.draw(screen)  # Desenha os elementos da Fase 1
-        player.draw(screen)  # Desenha o jogador
+        level1.draw(screen)
+        player.draw(screen)
     elif state == LEVEL2:
-        draw_level2_ui()  # Desenha a interface da Fase 2 (tempo)
-        player.draw(screen)  # Desenha o jogador
-        enemy_manager.draw(screen)  # Desenha os inimigos
+        draw_level2_ui()
+        player.draw(screen)
+        enemy_manager.draw(screen)
     elif state == GAME_OVER:
-        draw_message("GAME OVER", "red", "Pressione ESPAÇO para voltar")  # Tela de derrota
+        draw_message("GAME OVER", "red", "Pressione ESPAÇO para voltar")
     elif state == VICTORY:
-        draw_message("VITÓRIA!", "green", "Pressione ESPAÇO para voltar")  # Tela de vitória
+        draw_message("VITÓRIA!", "green", "Pressione ESPAÇO para voltar")
 
 def draw_level2_ui():
-    """Desenha o tempo restante na Fase 2"""
-    time_left = max(0, TARGET_TIME - survival_time)  # Calcula o tempo restante, não deixando ser negativo
+    time_left = max(0, TARGET_TIME - survival_time)
     screen.draw.text(f"Fase 2: Sobreviva! Tempo: {time_left:.1f}s", topleft=(10, 10), fontsize=30, color="white")
 
 def draw_message(title, color, subtitle):
-    """Função auxiliar para desenhar mensagens de fim de jogo (Vitória/Derrota)"""
     screen.draw.text(title, center=(WIDTH//2, HEIGHT//2), fontsize=60, color=color)
     screen.draw.text(subtitle, center=(WIDTH//2, HEIGHT//2 + 60), fontsize=30, color="white")
 
 def update(dt):
-    """Função principal de atualização do Pygame Zero, chamada a cada quadro"""
-    global state, survival_time  # Permite modificar as variáveis globais
+    global state, survival_time
     
+    # Tenta iniciar a música no primeiro frame (quando o mixer já deve estar pronto)
+    if state == MENU and menu.sound_enabled and not pygame.mixer.music.get_busy():
+         manage_music()
+
     if state == LEVEL1:
-        player.update()  # Atualiza a posição do jogador
-        level_complete = level1.update(player.rect, menu.sound_enabled)  # Atualiza a lógica da fase 1
+        player.update()
+        level_complete = level1.update(player.rect, menu.sound_enabled)
         
-        if level_complete:  # Se coletou todas as moedas
-            state = LEVEL2  # Muda para a Fase 2
-            player.reset_position()  # Reseta a posição do jogador para o centro
-            enemy_manager.init_enemies(player.rect)  # Inicializa os inimigos longe do jogador
-            survival_time = 0  # Reseta o tempo de sobrevivência
+        if level_complete:
+            state = LEVEL2
+            player.reset_position()
+            enemy_manager.init_enemies(player.rect)
+            survival_time = 0
             
     elif state == LEVEL2:
-        player.update()  # Atualiza a posição do jogador
-        enemy_manager.update()  # Atualiza a posição dos inimigos
-        survival_time += dt  # Incrementa o tempo de sobrevivência com o tempo delta (dt)
+        player.update()
+        enemy_manager.update()
+        survival_time += dt
         
-        if enemy_manager.check_collision(player.rect):  # Verifica colisão com inimigos
-            state = GAME_OVER  # Muda o estado para Game Over
+        if enemy_manager.check_collision(player.rect):
+            state = GAME_OVER
             if menu.sound_enabled:
-                print("Som: Game Over!")  # Placeholder para som de derrota
+                print("Som: Game Over!")
         
-        if survival_time >= TARGET_TIME:  # Se sobreviveu pelo tempo alvo
-            state = VICTORY  # Muda o estado para Vitória
+        if survival_time >= TARGET_TIME:
+            state = VICTORY
             if menu.sound_enabled:
-                print("Som: Vitória!")  # Placeholder para som de vitória
+                print("Som: Vitória!")
 
     elif state in (GAME_OVER, VICTORY):
-        if keyboard.space:  # Se pressionar ESPAÇO nas telas finais
-            state = MENU  # Volta para o menu
+        if keyboard.space:
+            state = MENU
 
 def on_mouse_down(pos):
-    """Evento de clique do mouse"""
     global state
     
     if state == MENU:
-        action = menu.handle_click(pos)  # Verifica onde clicou no menu
+        action = menu.handle_click(pos)
         if action == "start":
-            state = LEVEL1  # Inicia o jogo
+            state = LEVEL1
             player.reset_position()
-            level1.start()  # Reinicia as moedas da Fase 1
+            level1.start()
         elif action == "toggle_sound":
-            manage_music() # Atualiza a música imediatamente ao clicar no botão de som
+            manage_music()
         elif action == "exit":
-            quit()  # Fecha o jogo
+            quit()
 
-pgzrun.go()  # Inicia o loop principal do jogo
+pgzrun.go()
