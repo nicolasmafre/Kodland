@@ -13,8 +13,9 @@ class Level:
         self.bg = Actor('fundo/fundo')
         self.bg.pos = (WIDTH//2, HEIGHT//2)
         
-        self.hud_coin = Actor('objetos/moedas_bronze', (WIDTH - 100, 30))
-        self.hud_life = Actor('objetos/vidas', (WIDTH - 150, 30))
+        # HUD Ajustado: Vidas na Esquerda, Moedas na Direita
+        self.hud_life = Actor('objetos/vidas', (50, 30)) # Esquerda
+        self.hud_coin = Actor('objetos/moedas_bronze', (WIDTH - 100, 30)) # Direita
         
         self.setup_level()
 
@@ -29,7 +30,7 @@ class Level:
             plat = Actor('ambiente/fase01-piso_normal', (i + 35, HEIGHT - 35))
             self.platforms.append(plat)
 
-        # Plataformas flutuantes (Ajustadas para 1200x800)
+        # Plataformas flutuantes
         self.create_platform(200, HEIGHT - 180, 3)
         self.create_platform(800, HEIGHT - 280, 4)
         self.create_platform(100, HEIGHT - 400, 3)
@@ -37,7 +38,7 @@ class Level:
         self.create_platform(300, HEIGHT - 620, 2)
         self.create_platform(900, HEIGHT - 650, 3)
 
-        # Decoração aleatória
+        # Decoração
         for _ in range(10):
             x = random.randint(50, WIDTH-50)
             y = HEIGHT - 100
@@ -45,7 +46,7 @@ class Level:
             deco = Actor(img, (x, y))
             self.decorations.append(deco)
 
-        # Moedas (Bronze)
+        # Moedas
         coin_positions = [
             (200, HEIGHT - 230), 
             (800, HEIGHT - 330), 
@@ -59,11 +60,9 @@ class Level:
             self.coins.append(coin)
 
         # Inimigos
-        # Espinho um pouco mais alto (y=HEIGHT-95) para ficar "em cima" do chão visualmente
-        self.enemies.append(SpikeEnemy(600, HEIGHT - 95)) 
-        
-        # Voador um pouco mais baixo (y=400)
-        self.enemies.append(WingEnemy(500, 400))
+        # Espinho começa no meio para patrulhar para os lados
+        self.enemies.append(SpikeEnemy(WIDTH//2, HEIGHT - 95))
+        self.enemies.append(WingEnemy(500, 400))          
 
     def create_platform(self, x, y, size):
         for i in range(size):
@@ -71,13 +70,11 @@ class Level:
             self.platforms.append(plat)
 
     def update(self, player):
-        # Atualizar inimigos
         for enemy in self.enemies:
             enemy.update()
             if player.colliderect(enemy):
                 player.take_damage()
 
-        # Coletar moedas
         for coin in self.coins[:]:
             coin.angle += 2
             if player.colliderect(coin):

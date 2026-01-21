@@ -55,8 +55,13 @@ def draw():
     elif state == GAME:
         level.draw()
         player.draw()
+        
+        # HUD Ajustado
+        # Moedas na Direita
         screen.draw.text(f"x {len(level.coins)}", pos=(WIDTH - 70, 20), fontsize=30, color="white")
-        screen.draw.text(f"x {player.lives}", pos=(WIDTH - 120, 20), fontsize=30, color="white")
+        # Vidas na Esquerda
+        screen.draw.text(f"x {player.lives}", pos=(80, 20), fontsize=30, color="white")
+
     elif state == GAME_OVER:
         screen.draw.text("GAME OVER", center=(WIDTH//2, HEIGHT//2), fontsize=60, color="red")
         screen.draw.text("Pressione ESPAÇO", center=(WIDTH//2, HEIGHT//2 + 60), fontsize=30, color="white")

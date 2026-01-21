@@ -1,6 +1,6 @@
 # Configurações da Tela
-WIDTH = 1200  # Aumentado para 1200
-HEIGHT = 800  # Aumentado para 800
+WIDTH = 1200
+HEIGHT = 800
 TITLE = "Aventura do Coelho"
 
 # Cores
@@ -11,7 +11,7 @@ BLACK = (0, 0, 0)
 GRAVITY = 0.8
 JUMP_POWER = -16
 SPEED = 5
-ENEMY_SPEED = 2
+ENEMY_SPEED = 4  # Aumentado de 2 para 4
 
 # Estados
 MENU = 0

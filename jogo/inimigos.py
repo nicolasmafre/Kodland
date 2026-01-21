@@ -1,5 +1,6 @@
 from pgzero.builtins import Actor
 from jogo.constantes import *
+import random
 
 class Enemy(Actor):
     def __init__(self, x, y, image_list, speed, is_flying=False):
@@ -10,6 +11,9 @@ class Enemy(Actor):
         self.timer = 0
         self.frame_index = 0
         self.anim_timer = 0
+        
+        # Física para inimigos terrestres
+        self.vy = 0
         
         # Lógica de patrulha
         self.start_x = x
@@ -22,27 +26,51 @@ class Enemy(Actor):
         self.animate()
         
         if self.is_flying:
-            # Voar para cima e para baixo
+            # Voar para cima e para baixo com maior amplitude
             self.y += self.speed * self.direction
-            if abs(self.y - self.start_y) > 100:
+            if abs(self.y - self.start_y) > 250:
                 self.direction *= -1
         else:
+            # Lógica Terrestre (Espinho)
+            
+            # Gravidade
+            self.vy += GRAVITY
+            self.y += self.vy
+            
+            # Colisão simples com o chão original
+            if self.y >= self.start_y:
+                self.y = self.start_y
+                self.vy = 0
+            
+            # Pulo Aleatório (apenas se estiver no chão e se movendo)
+            if self.state == "moving" and self.y == self.start_y:
+                if random.randint(0, 100) < 1:
+                    self.vy = -18
+
             # Andar, parar, voltar
             if self.state == "moving":
                 self.x += self.speed * self.direction
-                self.move_timer += 1
                 
-                # Anda por cerca de 2 segundos (120 frames)
-                if self.move_timer > 120:
+                # Verifica limites da tela para inverter direção
+                # Se bater na borda direita E estiver indo para a direita
+                if self.x > WIDTH - 50 and self.direction > 0:
+                    self.direction = -1 # Força ir para a esquerda
                     self.state = "waiting"
-                    self.move_timer = 0
+                
+                # Se bater na borda esquerda E estiver indo para a esquerda
+                elif self.x < 50 and self.direction < 0:
+                    self.direction = 1 # Força ir para a direita
+                    self.state = "waiting"
+                
+                # Removemos o timer de segurança que estava forçando a parada antes da hora
+                # self.move_timer += 1 ...
             
             elif self.state == "waiting":
                 self.move_timer += 1
-                if self.move_timer > 120: # Espera 2 segundos
+                if self.move_timer > 60: # Espera 1 segundo
                     self.state = "moving"
                     self.move_timer = 0
-                    self.direction *= -1 # Inverte direção
+                    # A direção já foi invertida no bloco anterior, não inverte aqui novamente
 
     def animate(self):
         self.anim_timer += 1
@@ -54,9 +82,9 @@ class Enemy(Actor):
 class SpikeEnemy(Enemy):
     def __init__(self, x, y):
         images = ['inimigos/espinho_andando01', 'inimigos/espinho_andando02']
-        super().__init__(x, y, images, speed=2, is_flying=False)
+        super().__init__(x, y, images, speed=ENEMY_SPEED, is_flying=False)
 
 class WingEnemy(Enemy):
     def __init__(self, x, y):
         images = ['inimigos/asas01', 'inimigos/asas02', 'inimigos/asas03', 'inimigos/asas04']
-        super().__init__(x, y, images, speed=3, is_flying=True)
+        super().__init__(x, y, images, speed=ENEMY_SPEED + 1, is_flying=True)
