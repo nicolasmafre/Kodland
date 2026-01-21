@@ -1,55 +1,62 @@
-import random  # Importa biblioteca para números aleatórios
-import math  # Importa biblioteca matemática para cálculos de distância
-from pgzero.builtins import Rect  # Importa Rect para os inimigos
-from jogo.constantes import WIDTH, HEIGHT, ENEMY_COUNT  # Importa constantes
+from pgzero.builtins import Actor
+from jogo.constantes import *
 
-class EnemyManager:
-    def __init__(self):
-        """Inicializa o gerenciador de inimigos"""
-        self.enemies = []  # Lista para armazenar os dicionários de inimigos
-
-    def init_enemies(self, player_rect):
-        """Cria os inimigos em posições aleatórias, longe do jogador"""
-        self.enemies = []
-        for _ in range(ENEMY_COUNT):
-            x = random.randint(0, WIDTH)
-            y = random.randint(0, HEIGHT)
-            
-            # Loop para garantir que o inimigo não nasça muito perto do jogador (distância mínima de 150px)
-            while math.hypot(x - player_rect.centerx, y - player_rect.centery) < 150:
-                x = random.randint(0, WIDTH)
-                y = random.randint(0, HEIGHT)
-            
-            enemy_rect = Rect(x, y, 25, 25)  # Cria o retângulo do inimigo
-            
-            # Define velocidades aleatórias para X e Y, evitando 0 para que sempre se movam
-            vx = random.choice([-4, -3, 3, 4])
-            vy = random.choice([-4, -3, 3, 4])
-            
-            # Adiciona o inimigo à lista como um dicionário contendo o Rect e as velocidades
-            self.enemies.append({'rect': enemy_rect, 'vx': vx, 'vy': vy})
+class Enemy(Actor):
+    def __init__(self, x, y, image_list, speed, is_flying=False):
+        super().__init__(image_list[0], (x, y))
+        self.images = image_list
+        self.speed = speed
+        self.is_flying = is_flying
+        self.timer = 0
+        self.frame_index = 0
+        self.anim_timer = 0
+        
+        # Lógica de patrulha
+        self.start_x = x
+        self.start_y = y
+        self.direction = 1
+        self.move_timer = 0
+        self.state = "moving" # moving, waiting
 
     def update(self):
-        """Atualiza a posição de todos os inimigos"""
-        for enemy in self.enemies:
-            r = enemy['rect']
-            r.x += enemy['vx']  # Move no eixo X
-            r.y += enemy['vy']  # Move no eixo Y
+        self.animate()
+        
+        if self.is_flying:
+            # Voar para cima e para baixo
+            self.y += self.speed * self.direction
+            if abs(self.y - self.start_y) > 100:
+                self.direction *= -1
+        else:
+            # Andar, parar, voltar
+            if self.state == "moving":
+                self.x += self.speed * self.direction
+                self.move_timer += 1
+                
+                # Anda por cerca de 2 segundos (120 frames)
+                if self.move_timer > 120:
+                    self.state = "waiting"
+                    self.move_timer = 0
             
-            # Lógica de rebatimento nas paredes (inverte a velocidade se tocar na borda)
-            if r.left < 0 or r.right > WIDTH:
-                enemy['vx'] *= -1
-            if r.top < 0 or r.bottom > HEIGHT:
-                enemy['vy'] *= -1
+            elif self.state == "waiting":
+                self.move_timer += 1
+                if self.move_timer > 120: # Espera 2 segundos
+                    self.state = "moving"
+                    self.move_timer = 0
+                    self.direction *= -1 # Inverte direção
 
-    def check_collision(self, player_rect):
-        """Verifica se algum inimigo colidiu com o jogador"""
-        for enemy in self.enemies:
-            if player_rect.colliderect(enemy['rect']):
-                return True  # Retorna True se houver colisão
-        return False  # Retorna False se não houver colisão
+    def animate(self):
+        self.anim_timer += 1
+        if self.anim_timer > 10:
+            self.frame_index = (self.frame_index + 1) % len(self.images)
+            self.image = self.images[self.frame_index]
+            self.anim_timer = 0
 
-    def draw(self, screen):
-        """Desenha todos os inimigos na tela"""
-        for enemy in self.enemies:
-            screen.draw.filled_rect(enemy['rect'], "red")
+class SpikeEnemy(Enemy):
+    def __init__(self, x, y):
+        images = ['inimigos/espinho_andando01', 'inimigos/espinho_andando02']
+        super().__init__(x, y, images, speed=2, is_flying=False)
+
+class WingEnemy(Enemy):
+    def __init__(self, x, y):
+        images = ['inimigos/asas01', 'inimigos/asas02', 'inimigos/asas03', 'inimigos/asas04']
+        super().__init__(x, y, images, speed=3, is_flying=True)

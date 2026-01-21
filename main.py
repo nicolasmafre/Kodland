@@ -1,126 +1,84 @@
 import pgzrun
-import pygame
-import os
-from pgzero.builtins import keyboard
+from pgzero.builtins import keyboard, music, keys
 
 from jogo.constantes import *
 from jogo.personagens import Player
-from jogo.inimigos import EnemyManager
-from jogo.fases import Level1
+from jogo.fases import Level
 from jogo.menu import Menu
 
-# Inicialização de Objetos
+# Inicialização
 player = Player()
-enemy_manager = EnemyManager()
-level1 = Level1()
+level = Level()
 menu = Menu()
 
-# Variáveis de Estado Global
 state = MENU
-survival_time = 0
-
-# Variável para controlar se a música já foi iniciada
-music_started = False
 
 def manage_music():
-    """Gerencia a música de fundo baseada na configuração de som"""
-    global music_started
-    
-    # Caminho absoluto para garantir que o arquivo seja encontrado
-    music_path = os.path.join("musica", "musica_fundo.mp3")
-    
+    """Gerencia a música usando o sistema nativo do PgZero"""
     try:
         if menu.sound_enabled:
-            if not pygame.mixer.music.get_busy():
-                print(f"Tentando carregar música de: {os.path.abspath(music_path)}")
-                if os.path.exists(music_path):
-                    pygame.mixer.music.load(music_path)
-                    pygame.mixer.music.play(-1)
-                    music_started = True
-                    print("Música iniciada com sucesso.")
-                else:
-                    print(f"ERRO: Arquivo não encontrado: {os.path.abspath(music_path)}")
+            if not music.is_playing('musica_fundo'):
+                music.play('musica_fundo')
+                music.set_volume(0.5)
         else:
-            if pygame.mixer.music.get_busy():
-                pygame.mixer.music.stop()
-                music_started = False
-                print("Música parada.")
+            music.stop()
     except Exception as e:
-        print(f"Erro ao manipular música: {e}")
+        print(f"Aviso: Erro ao tocar música: {e}")
+
+def update():
+    global state
+    
+    if state == MENU:
+        manage_music()
+
+    if state == GAME:
+        player.update(level.platforms)
+        level_complete = level.update(player)
+        
+        if player.lives <= 0:
+            state = GAME_OVER
+        elif level_complete:
+            state = VICTORY
+
+    elif state in (GAME_OVER, VICTORY):
+        if keyboard.space:
+            state = MENU
+            player.lives = 3
+            player.reset_position()
+            level.setup_level()
 
 def draw():
     screen.clear()
     
     if state == MENU:
         menu.draw(screen)
-    elif state == LEVEL1:
-        level1.draw(screen)
-        player.draw(screen)
-    elif state == LEVEL2:
-        draw_level2_ui()
-        player.draw(screen)
-        enemy_manager.draw(screen)
+    elif state == GAME:
+        level.draw()
+        player.draw()
+        screen.draw.text(f"x {len(level.coins)}", pos=(WIDTH - 70, 20), fontsize=30, color="white")
+        screen.draw.text(f"x {player.lives}", pos=(WIDTH - 120, 20), fontsize=30, color="white")
     elif state == GAME_OVER:
-        draw_message("GAME OVER", "red", "Pressione ESPAÇO para voltar")
+        screen.draw.text("GAME OVER", center=(WIDTH//2, HEIGHT//2), fontsize=60, color="red")
+        screen.draw.text("Pressione ESPAÇO", center=(WIDTH//2, HEIGHT//2 + 60), fontsize=30, color="white")
     elif state == VICTORY:
-        draw_message("VITÓRIA!", "green", "Pressione ESPAÇO para voltar")
-
-def draw_level2_ui():
-    time_left = max(0, TARGET_TIME - survival_time)
-    screen.draw.text(f"Fase 2: Sobreviva! Tempo: {time_left:.1f}s", topleft=(10, 10), fontsize=30, color="white")
-
-def draw_message(title, color, subtitle):
-    screen.draw.text(title, center=(WIDTH//2, HEIGHT//2), fontsize=60, color=color)
-    screen.draw.text(subtitle, center=(WIDTH//2, HEIGHT//2 + 60), fontsize=30, color="white")
-
-def update(dt):
-    global state, survival_time
-    
-    # Tenta iniciar a música no primeiro frame (quando o mixer já deve estar pronto)
-    if state == MENU and menu.sound_enabled and not pygame.mixer.music.get_busy():
-         manage_music()
-
-    if state == LEVEL1:
-        player.update()
-        level_complete = level1.update(player.rect, menu.sound_enabled)
-        
-        if level_complete:
-            state = LEVEL2
-            player.reset_position()
-            enemy_manager.init_enemies(player.rect)
-            survival_time = 0
-            
-    elif state == LEVEL2:
-        player.update()
-        enemy_manager.update()
-        survival_time += dt
-        
-        if enemy_manager.check_collision(player.rect):
-            state = GAME_OVER
-            if menu.sound_enabled:
-                print("Som: Game Over!")
-        
-        if survival_time >= TARGET_TIME:
-            state = VICTORY
-            if menu.sound_enabled:
-                print("Som: Vitória!")
-
-    elif state in (GAME_OVER, VICTORY):
-        if keyboard.space:
-            state = MENU
+        screen.draw.text("VITÓRIA!", center=(WIDTH//2, HEIGHT//2), fontsize=60, color="green")
+        screen.draw.text("Pressione ESPAÇO", center=(WIDTH//2, HEIGHT//2 + 60), fontsize=30, color="white")
 
 def on_mouse_down(pos):
     global state
-    
     if state == MENU:
         action = menu.handle_click(pos)
         if action == "start":
-            state = LEVEL1
-            player.reset_position()
-            level1.start()
+            state = GAME
         elif action == "toggle_sound":
             manage_music()
         elif action == "exit":
             quit()
+
+def on_key_down(key):
+    """Evento de tecla pressionada para pulo preciso"""
+    if state == GAME:
+        if key == keys.UP:
+            player.jump()
 
 pgzrun.go()
